@@ -5,7 +5,7 @@
  * Sends an email on success or failure with full debug info
  */
 
-define('IDLOOM_NOTIFY_EMAIL', 'jon@jongriffin.com'); // Change as needed
+define('IDLOOM_NOTIFY_EMAIL', 'tech.cmte@uwpiaa.org'); // Change as needed
 
 function idloom_notify_success($contact_id, $webhook_id, $contact_data) {
     $to      = IDLOOM_NOTIFY_EMAIL;
