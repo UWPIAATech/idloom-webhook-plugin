@@ -1,80 +1,85 @@
-# Idloom Webhook Handler for WordPress & CiviCRM
+# Idloom Webhook Plugin
 
-This WordPress plugin handles incoming webhooks from Idloom and creates corresponding activities in CiviCRM. It's designed to process registration data and store it in your CiviCRM instance for further processing and review.
+**Repo:** https://github.com/UWPIAATech/idloom-webhook-plugin
+(moved from `tresero/idloom-webhook-plugin`)
+**On the server:** `/opt/uwpiaa/wp_files/wp-content/plugins/idloom-webhook/`
+**Endpoint:** `POST https://uwpiaa.org/wp-json/idloom/v1/webhook`
 
-## Features
+## What it does
 
-- Processes incoming webhook data from Idloom
-- Validates and sanitizes registration data
-- Creates CiviCRM activities for registration review
-- Handles consent management through custom fields
-- Supports comprehensive error logging
-- Processes attendee details including contact and address information
+When someone registers in Idloom, Idloom sends the registration to this
+endpoint. If they ticked the "update my information" consent (`free_field59`),
+the plugin adds or updates them in CiviCRM and emails tech.cmte@uwpiaa.org.
 
-## Prerequisites
+- Finds an existing contact by email and updates it. A new contact is created
+  only if no contact has that email, or if several do.
+- Saves email, phone and primary address. Idloom's country/state codes
+  (e.g. `US`, `AZ`) are converted to CiviCRM's country and state.
+- Blank fields never overwrite existing data. New contacts get the source
+  "Idloom Registration".
+- Repeat deliveries of the same webhook within 5 minutes are skipped.
 
-- WordPress installation
-- CiviCRM plugin installed and configured
-- Idloom integration set up with webhook capabilities
+## Files
 
-## Installation
-
-1. Upload the `idloom-webhook.php` file to your WordPress plugins directory (`wp-content/plugins/idloom-webhook/`)
-2. Activate the plugin through the WordPress admin panel
-3. Configure your Idloom webhook endpoint to point to: `https://your-site.com/wp-json/idloom/v1/webhook`
-
-## Configuration
-
-The plugin uses several custom fields from Idloom:
-- `free_field59`: Used for consent to update information
-- `free_field12`: Contains cast year information (for alumni)
-- `free_field56`: Permission to post on "who's coming" list
-
-## Webhook Data Processing
-
-The plugin processes the following fields from the webhook payload:
-- Basic contact information (email, firstname, lastname, phone)
-- Address details (street, street number, city, ZIP code, country)
-- Custom fields for consent and alumni information
+| File | Purpose |
+|---|---|
+| `idloom-webhook.php` | REST route, token check, CiviCRM create/update |
+| `idloom-notify.php` | Notification emails (success / failure / duplicate) |
 
 ## Security
 
-The plugin implements several security measures:
-- Content-Type validation (requires application/json)
-- Data sanitization for all incoming fields
-- Error logging for debugging purposes
-- Consent validation before processing
+Idloom doesn't sign webhooks, so a shared token is used instead.
 
-## Error Handling
-
-The plugin includes comprehensive error handling and logging:
-- JSON parsing validation
-- CiviCRM API error catching
-- Input validation and sanitization
-- Detailed error logging for debugging
-
-## API Response Format
-
-### Success Response
-```json
-{
-    "status": "success",
-    "message": "Activity created in CiviCRM successfully."
-}
+**wp-config.php**
+```php
+define('IDLOOM_WEBHOOK_TOKEN', '<secret>');   // the shared token
+define('IDLOOM_WEBHOOK_ENFORCE', true);       // false = only log bad tokens (rollout)
 ```
 
-### Error Response
+**Idloom:** Manager → Integration → Idloom → edit the integration → the
+webhook → **Headers**:
 ```json
 {
-    "code": "error_code",
-    "message": "Error description",
-    "status": 400
+ "Content-Type": "application/json",
+ "Authorization": "Bearer <secret>"
 }
 ```
+(`X-Idloom-Token: <secret>` is also accepted.)
 
-## Contributing
+When enforcement is on, requests without the right token get a `401`.
+Note that the route appears publicly at `/wp-json/`, so the token is the
+only thing protecting it.
 
-Feel free to submit issues and pull requests to improve the plugin.
+**Changing the token:** generate a new one (`openssl rand -hex 32`), put it in
+both wp-config.php and the Idloom headers, and check that a delivery succeeds.
+
+## Logs
+
+```
+docker logs --since 24h uwpiaa-wordpress 2>&1 | grep "Idloom Webhook"
+```
+Each delivery logs its ID, the contact created or updated, and "Complete".
+"Missing or invalid token" means the Idloom header is wrong or missing.
+
+## Maintenance notes
+
+- Files must be owned by `www-data`. Run git as that user
+  (`sudo -u www-data git ...`); running it as root leaves files owned by
+  root.
+- Needs the CiviCRM plugin and the custom field
+  `Extra_IAA_Contact_Info.Primary_Cast`.
+- The attendee list on the site (the `aaw-attendee-list` plugin) doesn't use
+  this webhook; it reads straight from the Idloom API.
+
+## Revision History
+
+| Version | Date | Changes |
+|---|---|---|
+| 1.3.0 | 2026-11-10 | Shared-token authentication (`IDLOOM_WEBHOOK_TOKEN` / `IDLOOM_WEBHOOK_ENFORCE`); existing contacts found by email instead of duplicated; `match` fixed for email/phone/address; country and state now saved; blanks no longer overwrite data; README rewritten. |
+| 1.2.1 | 2026-03-30 | Added email notifications (`idloom-notify.php`) for success, failure and duplicates. |
+| 1.2 | 2026-03-30 | Skip repeat deliveries of the same webhook (idloom retries). |
+| 1.1 | 2025-11-19 | Create/update CiviCRM contacts instead of activities; Primary Cast from `cpy_name`. |
+| 1.0 | 2025-05-17 | Initial release: creates a CiviCRM activity for each registration. |
 
 ## Author
 
@@ -82,8 +87,4 @@ Jon Griffin
 
 ## License
 
-This plugin is licensed under the GPL v2 or later.
-
-## Support
-
-For support questions or bug reports, please open an issue on the GitHub repository.
+GPL v2 or later.
