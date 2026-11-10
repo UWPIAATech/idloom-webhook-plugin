@@ -2,7 +2,7 @@
 /*
 Plugin Name: Idloom Webhook Handler
 Description: Handles Idloom webhooks and creates/updates CiviCRM contacts
-Version: 1.3.0
+Version: 1.3.1
 Author: Jon Griffin
 */
 
@@ -87,8 +87,8 @@ function idloom_webhook_handler(WP_REST_Request $request) {
     set_transient($dedup_key, true, 300);
 
     if (empty($data['free_field59']) || !in_array($data['free_field59'], [true, 'true', 1], true)) {
-        error_log('Idloom Webhook — free_field59 not true, skipping.');
-        delete_transient($dedup_key);
+        error_log('Idloom Webhook — free_field59 not true, CiviCRM not updated.');
+        idloom_notify_skipped($dedup_id, $data);
         return;
     }
 
@@ -223,7 +223,7 @@ function idloom_webhook_handler(WP_REST_Request $request) {
         }
 
         error_log('Idloom Webhook — Complete. Contact ID: ' . $contact_id . ', Webhook ID: ' . $dedup_id);
-        idloom_notify_success($contact_id, $dedup_id, $contact_data);
+        idloom_notify_success($contact_id, $dedup_id, $contact_data, $data);
 
     } catch (Exception $e) {
         error_log('Idloom Webhook — CiviCRM Exception: ' . $e->getMessage());

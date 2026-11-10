@@ -9,7 +9,10 @@
 
 When someone registers in Idloom, Idloom sends the registration to this
 endpoint. If they ticked the "update my information" consent (`free_field59`),
-the plugin adds or updates them in CiviCRM and emails tech.cmte@uwpiaa.org.
+the plugin adds or updates them in CiviCRM. Either way it emails
+tech.cmte@uwpiaa.org; without the consent the email says CiviCRM was not
+updated. Every email shows both checkboxes: "update my record" (`free_field59`)
+and "Who's Registered" (`free_field56`).
 
 - Finds an existing contact by email and updates it. A new contact is created
   only if no contact has that email, or if several do.
@@ -24,7 +27,7 @@ the plugin adds or updates them in CiviCRM and emails tech.cmte@uwpiaa.org.
 | File | Purpose |
 |---|---|
 | `idloom-webhook.php` | REST route, token check, CiviCRM create/update |
-| `idloom-notify.php` | Notification emails (success / failure / duplicate) |
+| `idloom-notify.php` | Notification emails (success / no consent / failure / duplicate) |
 
 ## Security
 
@@ -75,6 +78,7 @@ Each delivery logs its ID, the contact created or updated, and "Complete".
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.3.1 | 2026-11-10 | Email tech.cmte@uwpiaa.org for registrations without the `free_field59` consent too (CiviCRM still not updated). Every registration email shows the `free_field59` and `free_field56` checkboxes. |
 | 1.3.0 | 2026-11-10 | Shared-token authentication (`IDLOOM_WEBHOOK_TOKEN` / `IDLOOM_WEBHOOK_ENFORCE`); existing contacts found by email instead of duplicated; `match` fixed for email/phone/address; country and state now saved; blanks no longer overwrite data; README rewritten. |
 | 1.2.1 | 2026-03-30 | Added email notifications (`idloom-notify.php`) for success, failure and duplicates. |
 | 1.2 | 2026-03-30 | Skip repeat deliveries of the same webhook (idloom retries). |
